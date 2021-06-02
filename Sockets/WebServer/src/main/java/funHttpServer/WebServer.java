@@ -25,6 +25,7 @@ import java.util.Random;
 import java.util.Map;
 import java.util.LinkedHashMap;
 import java.nio.charset.Charset;
+import org.json.*;
 
 class WebServer {
   public static void main(String args[]) {
@@ -193,30 +194,47 @@ class WebServer {
             builder.append("\n");
             builder.append("File not found: " + file);
           }
-        } else if (request.contains("multiply?")) {
-          // This multiplies two numbers, there is NO error handling, so when
+        } else if (request.contains("multiply?")) {	
+	  // This multiplies two numbers, there is NO error handling, so when
           // wrong data is given this just crashes
 
           Map<String, String> query_pairs = new LinkedHashMap<String, String>();
           // extract path parameters
           query_pairs = splitQuery(request.replace("multiply?", ""));
 
-          // extract required fields from parameters
-          Integer num1 = Integer.parseInt(query_pairs.get("num1"));
-          Integer num2 = Integer.parseInt(query_pairs.get("num2"));
+	  // extract required fields from parameters
+	  int num1 = 0;
+	  boolean num1Real = true;
+	  try{
+	  	num1 = Integer.parseInt(query_pairs.get("num1"));
+	  } catch (NumberFormatException e) {
+	  	num1Real = false;
+	  }
 
-          // do math
-          Integer result = num1 * num2;
+	  int num2 = 0;
+	  boolean num2Real = true;
+	  try{
+	  	num2 = Integer.parseInt(query_pairs.get("num2"));
+	  } catch(NumberFormatException e) {
+	  	num2Real = false;
+	  }
 
-          // Generate response
-          builder.append("HTTP/1.1 200 OK\n");
-          builder.append("Content-Type: text/html; charset=utf-8\n");
-          builder.append("\n");
-          builder.append("Result is: " + result);
+	  if (num1Real == true && num2Real == true){
+	    // do math
+            Integer result = num1 * num2;
 
-          // TODO: Include error handling here with a correct error code and
-          // a response that makes sense
-
+            // Generate good response
+            builder.append("HTTP/1.1 200 OK\n");
+            builder.append("Content-Type: text/html; charset=utf-8\n");
+            builder.append("\n");
+            builder.append("Result is: " + result);
+	  } else {
+	    // Generate bad response
+	    builder.append("HTTP/1.1 418 I'm a teapot\n");
+            builder.append("Content-Type: text/html; charset=utf-8\n");
+            builder.append("\n");
+            builder.append("You might think this is funny, but a teapot can't figure out your inputs.");
+	  }
         } else if (request.contains("github?")) {
           // pulls the query from the request and runs it with GitHub's REST API
           // check out https://docs.github.com/rest/reference/
@@ -226,19 +244,42 @@ class WebServer {
           // "Owner's repo is named RepoName. Example: find RepoName's contributors" translates to
           //     "/repos/OWNERNAME/REPONAME/contributors"
 
-          Map<String, String> query_pairs = new LinkedHashMap<String, String>();
-          query_pairs = splitQuery(request.replace("github?", ""));
-          String json = fetchURL("https://api.github.com/" + query_pairs.get("query"));
-          System.out.println(json);
+	  try {	  
+            Map<String, String> query_pairs = new LinkedHashMap<String, String>();
+            query_pairs = splitQuery(request.replace("github?", ""));
+            String json = fetchURL("https://api.github.com/" + query_pairs.get("query"));
+		  
+	    builder.append("HTTP/1.1 200 OK\n");
+            builder.append("Content-Type: text/html; charset=utf-8\n");
+            builder.append("\n");
+	    builder.append("\n");
+        
+	    JSONArray jArray = new JSONArray(json);
+	
+	    for (int index=0; index<jArray.length(); index++) {
+	       JSONObject innerObj = jArray.getJSONObject(index);
+			
+	       String fullName[] = innerObj.getString("full_name").split("316/");
+	       String ownName = fullName[0];
+	       String repName = fullName[1];
+			
+	       JSONObject ownerObj = innerObj.getJSONObject("owner");
+	       int idNum = ownerObj.getInt("id");
+			
+	       builder.append("<span>" + ownName + ", " + idNum + " -> " + repName + "</span><br />");
+	    }
+		  
+            builder.append("<br />");
+            builder.append("<span>" + json + "</span><br />");
+	  } catch (Exception e) {
+	    // Generate bad response
+            builder.setLength(0);
 
-          builder.append("Check the todos mentioned in the Java source file");
-          // TODO: Parse the JSON returned by your fetch and create an appropriate
-          // response
-          // and list the owner name, owner id and name of the public repo on your webpage, e.g.
-          // amehlhase, 46384989 -> memoranda
-          // amehlhase, 46384989 -> ser316examples
-          // amehlhase, 46384989 -> test316
-
+	    builder.append("HTTP/1.1 418 I'm a teapot\n");
+            builder.append("Content-Type: text/html; charset=utf-8\n");
+            builder.append("\n");
+            builder.append("You might think this is funny, but a teapot can't figure out your inputs");
+	  }
         } else {
           // if the request is not recognized at all
 

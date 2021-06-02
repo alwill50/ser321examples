@@ -4,6 +4,15 @@ apply plugin: 'application'
 //define main class
 mainClassName = 'SimpleServer'
 
+//JSON Parser Implementation
+repositories {
+  mavenCentral()
+}
+
+dependencies{
+  compile 'org.json:json:20210307'
+}
+
 task SimpleWebServer(type: JavaExec) {
   group 'http'
   description 'Simple Http Demo'
